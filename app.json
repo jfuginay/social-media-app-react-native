@@ -40,7 +40,7 @@
       ],
       "config": {
         "googleMaps": {
-          "apiKey": "PASTE_YOUR_ACTUAL_API_KEY_HERE"
+          "apiKey": "AIzaSyBYv5SK3gpQnNaMF9IKu3uIx_V-y2nDLho"
         }
       },
       "package": "com.jfuginay.snapchat"
