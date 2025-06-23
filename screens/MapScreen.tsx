@@ -229,7 +229,7 @@ export default function MapScreen() {
                   longitude: contact.longitude,
                 }}
                 title={contact.name}
-                description={`Last seen: ${contact.lastSeen.toLocaleTimeString()}`}
+                description={`Last seen: ${new Date(contact.lastSeen).toLocaleTimeString()}`}
                 onPress={() => handleContactPress(contact.id)}
               >
                 <ContactMarker
@@ -300,7 +300,7 @@ export default function MapScreen() {
                         contact.isOnline ? styles.onlineDot : styles.offlineDot
                       ]} />
                       <Text style={styles.statusText}>
-                        {contact.isOnline ? 'Online' : `Last seen ${Math.floor((Date.now() - contact.lastSeen.getTime()) / 60000)}m ago`}
+                                                 {contact.isOnline ? 'Online' : `Last seen ${Math.floor((Date.now() - contact.lastSeen) / 60000)}m ago`}
                       </Text>
                     </View>
                   </View>

@@ -6,7 +6,7 @@ export interface Contact {
   avatar: string;
   latitude: number;
   longitude: number;
-  lastSeen: Date;
+  lastSeen: number; // timestamp in milliseconds
   isOnline: boolean;
   accuracy?: number;
 }
@@ -25,7 +25,7 @@ const initialContacts: Contact[] = [
     avatar: '👩‍💻',
     latitude: 37.7749 + (Math.random() - 0.5) * 0.01,
     longitude: -122.4194 + (Math.random() - 0.5) * 0.01,
-    lastSeen: new Date(),
+    lastSeen: Date.now(),
     isOnline: true,
     accuracy: 5,
   },
@@ -35,7 +35,7 @@ const initialContacts: Contact[] = [
     avatar: '👨‍🎨',
     latitude: 37.7849 + (Math.random() - 0.5) * 0.01,
     longitude: -122.4094 + (Math.random() - 0.5) * 0.01,
-    lastSeen: new Date(Date.now() - 2 * 60 * 1000), // 2 minutes ago
+    lastSeen: Date.now() - 2 * 60 * 1000, // 2 minutes ago
     isOnline: true,
     accuracy: 8,
   },
@@ -45,7 +45,7 @@ const initialContacts: Contact[] = [
     avatar: '👨‍🚀',
     latitude: 37.7649 + (Math.random() - 0.5) * 0.01,
     longitude: -122.4294 + (Math.random() - 0.5) * 0.01,
-    lastSeen: new Date(Date.now() - 5 * 60 * 1000), // 5 minutes ago
+    lastSeen: Date.now() - 5 * 60 * 1000, // 5 minutes ago
     isOnline: false,
     accuracy: 12,
   },
@@ -55,7 +55,7 @@ const initialContacts: Contact[] = [
     avatar: '👩‍🔬',
     latitude: 37.7549 + (Math.random() - 0.5) * 0.01,
     longitude: -122.4394 + (Math.random() - 0.5) * 0.01,
-    lastSeen: new Date(),
+    lastSeen: Date.now(),
     isOnline: true,
     accuracy: 3,
   },
@@ -65,7 +65,7 @@ const initialContacts: Contact[] = [
     avatar: '👨‍🎸',
     latitude: 37.7449 + (Math.random() - 0.5) * 0.01,
     longitude: -122.4094 + (Math.random() - 0.5) * 0.01,
-    lastSeen: new Date(Date.now() - 15 * 60 * 1000), // 15 minutes ago
+    lastSeen: Date.now() - 15 * 60 * 1000, // 15 minutes ago
     isOnline: false,
     accuracy: 20,
   },
@@ -95,7 +95,7 @@ const contactsSlice = createSlice({
       if (contact) {
         contact.latitude = latitude;
         contact.longitude = longitude;
-        contact.lastSeen = new Date();
+        contact.lastSeen = Date.now();
         contact.isOnline = true;
         if (accuracy) contact.accuracy = accuracy;
       }
@@ -110,7 +110,7 @@ const contactsSlice = createSlice({
       if (contact) {
         contact.isOnline = isOnline;
         if (!isOnline) {
-          contact.lastSeen = new Date();
+          contact.lastSeen = Date.now();
         }
       }
     },
@@ -141,7 +141,7 @@ const contactsSlice = createSlice({
           
           contact.latitude += deltaLat;
           contact.longitude += deltaLng;
-          contact.lastSeen = new Date();
+          contact.lastSeen = Date.now();
           
           // Occasionally change accuracy
           if (Math.random() < 0.3) {

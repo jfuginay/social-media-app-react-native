@@ -10,9 +10,9 @@ interface ContactMarkerProps {
 }
 
 export default function ContactMarker({ contact, isSelected = false, onPress }: ContactMarkerProps) {
-  const getTimeSinceLastSeen = (lastSeen: Date) => {
-    const now = new Date();
-    const diffInMinutes = Math.floor((now.getTime() - lastSeen.getTime()) / (1000 * 60));
+  const getTimeSinceLastSeen = (lastSeen: number) => {
+    const now = Date.now();
+    const diffInMinutes = Math.floor((now - lastSeen) / (1000 * 60));
     
     if (diffInMinutes < 1) return 'now';
     if (diffInMinutes < 60) return `${diffInMinutes}m`;
