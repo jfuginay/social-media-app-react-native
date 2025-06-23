@@ -13,14 +13,34 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app uses the camera to capture photos and videos for your social media posts.",
+        "NSPhotoLibraryUsageDescription": "This app needs access to photo library to save your captured photos.",
+        "NSPhotoLibraryAddUsageDescription": "This app needs access to save photos to your photo library.",
+        "NSLocationWhenInUseUsageDescription": "This app needs location access to show your current location on the map and enable location-based features.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs location access to show your current location on the map and enable location-based features."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "android.permission.CAMERA", 
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyD_your_api_key_here"
+        }
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
