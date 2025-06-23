@@ -7,10 +7,14 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import MapView, { Marker, Region, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocation } from '../services';
+import { useAppSelector, useAppDispatch } from '../store/hooks';
+import { simulateContactMovement, setSelectedContact, toggleLocationSharing } from '../store/contactsSlice';
+import { ContactMarker } from '../components';
 
 interface MapRegion {
   latitude: number;
@@ -21,9 +25,13 @@ interface MapRegion {
 
 export default function MapScreen() {
   const { location, hasPermission, isLoading, error, requestPermission, startLocationUpdates } = useLocation();
+  const dispatch = useAppDispatch();
+  const { contacts, isLocationSharingEnabled, selectedContactId } = useAppSelector(state => state.contacts);
+  
   const [mapReady, setMapReady] = useState(false);
   const [following, setFollowing] = useState(true);
   const [mapRegion, setMapRegion] = useState<MapRegion | null>(null);
+  const [showContactsList, setShowContactsList] = useState(false);
   const mapRef = useRef<MapView>(null);
 
   useEffect(() => {
@@ -56,6 +64,17 @@ export default function MapScreen() {
     }
   }, [location, following]);
 
+  // Real-time contact location simulation
+  useEffect(() => {
+    if (!isLocationSharingEnabled) return;
+
+    const interval = setInterval(() => {
+      dispatch(simulateContactMovement());
+    }, 10000); // Update every 10 seconds
+
+    return () => clearInterval(interval);
+  }, [dispatch, isLocationSharingEnabled]);
+
   const centerOnUser = () => {
     if (mapRegion && mapRef.current) {
       mapRef.current.animateToRegion(mapRegion, 1000);
@@ -80,6 +99,30 @@ export default function MapScreen() {
   const handleRetry = () => {
     requestPermission();
   };
+
+  const handleContactPress = (contactId: string) => {
+    const contact = contacts.find(c => c.id === contactId);
+    if (contact && mapRef.current) {
+      // Pan to contact location
+      const contactRegion: MapRegion = {
+        latitude: contact.latitude,
+        longitude: contact.longitude,
+        latitudeDelta: 0.005,
+        longitudeDelta: 0.005,
+      };
+      mapRef.current.animateToRegion(contactRegion, 1000);
+      
+      // Select contact
+      dispatch(setSelectedContact(contactId === selectedContactId ? null : contactId));
+      setFollowing(false);
+    }
+  };
+
+  const handleToggleLocationSharing = () => {
+    dispatch(toggleLocationSharing());
+  };
+
+  const onlineContactsCount = contacts.filter(c => c.isOnline).length;
 
   if (isLoading) {
     return (
@@ -111,13 +154,33 @@ export default function MapScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Map</Text>
+        <View style={styles.headerLeft}>
+          <Text style={styles.headerTitle}>Map</Text>
+          {isLocationSharingEnabled && (
+            <Text style={styles.contactsCount}>
+              {onlineContactsCount} online
+            </Text>
+          )}
+        </View>
         <View style={styles.headerInfo}>
           {location?.accuracy && (
             <Text style={styles.accuracyText}>±{Math.round(location.accuracy)}m</Text>
           )}
-          <TouchableOpacity style={styles.headerButton}>
-            <Ionicons name="layers-outline" size={24} color="#333" />
+          <TouchableOpacity 
+            style={[styles.headerButton, isLocationSharingEnabled && styles.activeHeaderButton]}
+            onPress={handleToggleLocationSharing}
+          >
+            <Ionicons 
+              name={isLocationSharingEnabled ? "people" : "people-outline"} 
+              size={24} 
+              color={isLocationSharingEnabled ? "white" : "#333"} 
+            />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.headerButton}
+            onPress={() => setShowContactsList(!showContactsList)}
+          >
+            <Ionicons name="list-outline" size={24} color="#333" />
           </TouchableOpacity>
         </View>
       </View>
@@ -156,6 +219,26 @@ export default function MapScreen() {
                 </View>
               </View>
             </Marker>
+
+            {/* Contact markers */}
+            {isLocationSharingEnabled && contacts.map((contact) => (
+              <Marker
+                key={contact.id}
+                coordinate={{
+                  latitude: contact.latitude,
+                  longitude: contact.longitude,
+                }}
+                title={contact.name}
+                description={`Last seen: ${contact.lastSeen.toLocaleTimeString()}`}
+                onPress={() => handleContactPress(contact.id)}
+              >
+                <ContactMarker
+                  contact={contact}
+                  isSelected={contact.id === selectedContactId}
+                  onPress={() => handleContactPress(contact.id)}
+                />
+              </Marker>
+            ))}
           </MapView>
         )}
 
@@ -186,6 +269,47 @@ export default function MapScreen() {
             <Text style={styles.locationSubtext}>
               Last updated: {new Date(location.timestamp).toLocaleTimeString()}
             </Text>
+          </View>
+        )}
+
+        {/* Contacts List Overlay */}
+        {showContactsList && isLocationSharingEnabled && (
+          <View style={styles.contactsOverlay}>
+            <View style={styles.contactsHeader}>
+              <Text style={styles.contactsTitle}>Contacts</Text>
+              <TouchableOpacity onPress={() => setShowContactsList(false)}>
+                <Ionicons name="close" size={24} color="#333" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.contactsList}>
+              {contacts.map((contact) => (
+                <TouchableOpacity
+                  key={contact.id}
+                  style={[
+                    styles.contactItem,
+                    contact.id === selectedContactId && styles.selectedContactItem
+                  ]}
+                  onPress={() => handleContactPress(contact.id)}
+                >
+                  <Text style={styles.contactAvatar}>{contact.avatar}</Text>
+                  <View style={styles.contactInfo}>
+                    <Text style={styles.contactName}>{contact.name}</Text>
+                    <View style={styles.contactStatus}>
+                      <View style={[
+                        styles.statusDot, 
+                        contact.isOnline ? styles.onlineDot : styles.offlineDot
+                      ]} />
+                      <Text style={styles.statusText}>
+                        {contact.isOnline ? 'Online' : `Last seen ${Math.floor((Date.now() - contact.lastSeen.getTime()) / 60000)}m ago`}
+                      </Text>
+                    </View>
+                  </View>
+                  {contact.accuracy && (
+                    <Text style={styles.contactAccuracy}>±{contact.accuracy}m</Text>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </View>
         )}
       </View>
@@ -340,5 +464,100 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  },
+  headerLeft: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+  },
+  contactsCount: {
+    fontSize: 12,
+    color: '#4CAF50',
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  activeHeaderButton: {
+    backgroundColor: '#007AFF',
+    borderRadius: 20,
+  },
+  contactsOverlay: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    width: 280,
+    maxHeight: 400,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  contactsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5E5',
+  },
+  contactsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  contactsList: {
+    maxHeight: 300,
+  },
+  contactItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  selectedContactItem: {
+    backgroundColor: '#E3F2FD',
+  },
+  contactAvatar: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  contactInfo: {
+    flex: 1,
+  },
+  contactName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  contactStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  onlineDot: {
+    backgroundColor: '#4CAF50',
+  },
+  offlineDot: {
+    backgroundColor: '#999',
+  },
+  statusText: {
+    fontSize: 12,
+    color: '#666',
+  },
+  contactAccuracy: {
+    fontSize: 12,
+    color: '#999',
+    fontFamily: 'monospace',
   },
 }); 
