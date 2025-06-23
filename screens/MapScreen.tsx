@@ -13,8 +13,9 @@ import MapView, { Marker, Region, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocation } from '../services';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
-import { simulateContactMovement, setSelectedContact, toggleLocationSharing } from '../store/contactsSlice';
-import { ContactMarker } from '../components';
+import { simulateContactMovement, setSelectedContact, toggleLocationSharing, Contact } from '../store/contactsSlice';
+import { ContactMarker, ContactInfoPopup, ContactSearchBar, MapStyleSelector } from '../components';
+import type { MapType } from '../components/MapStyleSelector';
 
 interface MapRegion {
   latitude: number;
@@ -32,6 +33,11 @@ export default function MapScreen() {
   const [following, setFollowing] = useState(true);
   const [mapRegion, setMapRegion] = useState<MapRegion | null>(null);
   const [showContactsList, setShowContactsList] = useState(false);
+  const [showContactPopup, setShowContactPopup] = useState(false);
+  const [selectedContactForPopup, setSelectedContactForPopup] = useState<Contact | null>(null);
+  const [showMapStyleSelector, setShowMapStyleSelector] = useState(false);
+  const [mapType, setMapType] = useState<MapType>('standard');
+  const [showSearchBar, setShowSearchBar] = useState(false);
   const mapRef = useRef<MapView>(null);
 
   useEffect(() => {
@@ -102,8 +108,23 @@ export default function MapScreen() {
 
   const handleContactPress = (contactId: string) => {
     const contact = contacts.find(c => c.id === contactId);
-    if (contact && mapRef.current) {
-      // Pan to contact location
+    if (contact) {
+      // Show contact popup
+      setSelectedContactForPopup(contact);
+      setShowContactPopup(true);
+      
+      // Select contact on map
+      dispatch(setSelectedContact(contactId === selectedContactId ? null : contactId));
+      setFollowing(false);
+    }
+  };
+
+  const handleContactMarkerPress = (contactId: string) => {
+    handleContactPress(contactId);
+  };
+
+  const centerOnContact = (contact: Contact) => {
+    if (mapRef.current) {
       const contactRegion: MapRegion = {
         latitude: contact.latitude,
         longitude: contact.longitude,
@@ -111,10 +132,40 @@ export default function MapScreen() {
         longitudeDelta: 0.005,
       };
       mapRef.current.animateToRegion(contactRegion, 1000);
-      
-      // Select contact
-      dispatch(setSelectedContact(contactId === selectedContactId ? null : contactId));
       setFollowing(false);
+    }
+  };
+
+  const handleSearchContact = (contact: Contact) => {
+    centerOnContact(contact);
+    dispatch(setSelectedContact(contact.id));
+    setShowSearchBar(false);
+  };
+
+  const handleMapStyleChange = (style: MapType) => {
+    setMapType(style);
+    setShowMapStyleSelector(false);
+  };
+
+  const handleZoomIn = () => {
+    if (mapRef.current && mapRegion) {
+      const newRegion = {
+        ...mapRegion,
+        latitudeDelta: mapRegion.latitudeDelta * 0.5,
+        longitudeDelta: mapRegion.longitudeDelta * 0.5,
+      };
+      mapRef.current.animateToRegion(newRegion, 300);
+    }
+  };
+
+  const handleZoomOut = () => {
+    if (mapRef.current && mapRegion) {
+      const newRegion = {
+        ...mapRegion,
+        latitudeDelta: mapRegion.latitudeDelta * 2,
+        longitudeDelta: mapRegion.longitudeDelta * 2,
+      };
+      mapRef.current.animateToRegion(newRegion, 300);
     }
   };
 
@@ -177,6 +228,26 @@ export default function MapScreen() {
             />
           </TouchableOpacity>
           <TouchableOpacity 
+            style={[styles.headerButton, showSearchBar && styles.activeHeaderButton]}
+            onPress={() => setShowSearchBar(!showSearchBar)}
+          >
+            <Ionicons 
+              name="search" 
+              size={24} 
+              color={showSearchBar ? "white" : "#333"} 
+            />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.headerButton, showMapStyleSelector && styles.activeHeaderButton]}
+            onPress={() => setShowMapStyleSelector(!showMapStyleSelector)}
+          >
+            <Ionicons 
+              name="layers-outline" 
+              size={24} 
+              color={showMapStyleSelector ? "white" : "#333"} 
+            />
+          </TouchableOpacity>
+          <TouchableOpacity 
             style={styles.headerButton}
             onPress={() => setShowContactsList(!showContactsList)}
           >
@@ -202,7 +273,7 @@ export default function MapScreen() {
             zoomEnabled={true}
             onMapReady={() => setMapReady(true)}
             onRegionChangeComplete={onRegionChangeComplete}
-            mapType="standard"
+            mapType={mapType}
           >
             {/* Custom marker for user location */}
             <Marker
@@ -230,7 +301,7 @@ export default function MapScreen() {
                 }}
                 title={contact.name}
                 description={`Last seen: ${new Date(contact.lastSeen).toLocaleTimeString()}`}
-                onPress={() => handleContactPress(contact.id)}
+                onPress={() => handleContactMarkerPress(contact.id)}
               >
                 <ContactMarker
                   contact={contact}
@@ -240,6 +311,14 @@ export default function MapScreen() {
               </Marker>
             ))}
           </MapView>
+        )}
+
+        {/* Search Bar */}
+        {showSearchBar && (
+          <ContactSearchBar
+            contacts={contacts}
+            onSelectContact={handleSearchContact}
+          />
         )}
 
         {/* Map Controls */}
@@ -259,6 +338,28 @@ export default function MapScreen() {
             <Ionicons name="locate" size={24} color="#333" />
           </TouchableOpacity>
         </View>
+
+        {/* Floating Action Button - Center on User */}
+        <TouchableOpacity style={styles.fabButton} onPress={centerOnUser}>
+          <Ionicons name="locate" size={24} color="white" />
+        </TouchableOpacity>
+
+        {/* Zoom Controls */}
+        <View style={styles.zoomControls}>
+          <TouchableOpacity style={styles.zoomButton} onPress={handleZoomIn}>
+            <Ionicons name="add" size={20} color="#333" />
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.zoomButton, styles.zoomButtonBottom]} onPress={handleZoomOut}>
+            <Ionicons name="remove" size={20} color="#333" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Map Style Selector */}
+        <MapStyleSelector
+          selectedStyle={mapType}
+          onStyleChange={handleMapStyleChange}
+          visible={showMapStyleSelector}
+        />
 
         {/* Location Info */}
         {location && (
@@ -310,8 +411,25 @@ export default function MapScreen() {
                 </TouchableOpacity>
               ))}
             </ScrollView>
-          </View>
-        )}
+                     </View>
+         )}
+
+        {/* Contact Info Popup */}
+        <ContactInfoPopup
+          contact={selectedContactForPopup}
+          userLocation={location ? { latitude: location.latitude, longitude: location.longitude } : undefined}
+          visible={showContactPopup}
+          onClose={() => {
+            setShowContactPopup(false);
+            setSelectedContactForPopup(null);
+          }}
+          onCenterOnContact={() => {
+            if (selectedContactForPopup) {
+              centerOnContact(selectedContactForPopup);
+              setShowContactPopup(false);
+            }
+          }}
+        />
       </View>
     </SafeAreaView>
   );
@@ -559,5 +677,54 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#999',
     fontFamily: 'monospace',
+  },
+  fabButton: {
+    position: 'absolute',
+    bottom: 200,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#007AFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+    elevation: 8,
+  },
+  zoomControls: {
+    position: 'absolute',
+    bottom: 120,
+    right: 20,
+    flexDirection: 'column',
+  },
+  zoomButton: {
+    width: 40,
+    height: 40,
+    backgroundColor: 'white',
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: '#E5E5E5',
+  },
+  zoomButtonBottom: {
+    marginTop: 2,
   },
 }); 
